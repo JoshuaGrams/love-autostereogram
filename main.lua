@@ -5,17 +5,46 @@ local function changeEyeSeparationBy(n, m)
 	stereogram:setSeparation(stereogram.separation + n, stereogram.minSeparation + m)
 end
 
+local function scrollPattern(pattern, dx, dy, out, quads)
+	local w, h = pattern:getDimensions()
+	local ox, oy = math.floor(dx % w), math.floor(dy % h)
+	if out then
+		quads[1]:setViewport(0, 0,  w-ox, h-oy)
+		quads[2]:setViewport(w-ox, 0,  ox, h-oy)
+		quads[3]:setViewport(0, h-oy,  w-ox, oy)
+		quads[4]:setViewport(w-ox, h-oy,  ox, oy)
+	else
+		out = love.graphics.newCanvas(w, h)
+		quads = {
+			love.graphics.newQuad(0, 0,  w-ox, h-oy,  w, h),
+			love.graphics.newQuad(w-ox, 0,  ox, h-oy,  w, h),
+			love.graphics.newQuad(0, h-oy,  w-ox, oy,  w, h),
+			love.graphics.newQuad(w-ox, h-oy,  ox, oy,  w, h)
+		}
+	end
+
+	local oldCanvas = love.graphics.getCanvas()
+	love.graphics.setCanvas(out)
+	love.graphics.origin()
+	love.graphics.setColor(1, 1, 1)
+	love.graphics.clear(0, 0, 0)
+	love.graphics.draw(pattern, quads[1], ox, oy)
+	love.graphics.draw(pattern, quads[2], 0, oy)
+	love.graphics.draw(pattern, quads[3], ox, 0)
+	love.graphics.draw(pattern, quads[4], 0, 0)
+	love.graphics.setCanvas(oldCanvas)
+	return out, quads
+end
+
 function love.load()
 	love.mouse.setVisible(false)
-	local pattern = love.graphics.newImage('fall-color-tile.png')
+	basePattern = love.graphics.newImage('fall-color-tile.png')
 	local w, h = love.graphics.getDimensions()
+	pattern, quads = scrollPattern(basePattern, 50, 0)
 	stereogram = Stereogram:new(pattern, w, h)
 	stereogram:setSeparation(270, 220)
-	circle = { x = 800, y = 500, r = 120, dx = 0, dy = 0 }
-	sphere = love.graphics.newImage('ball.png')
-
-	roboto = love.graphics.newFont('Roboto-Bold.ttf', 384)
-	t = 0
+	player = { x = 800, y = 500, dx = 0, dy = 0 }
+	stereo = true
 end
 
 local function scancode(...)
@@ -38,55 +67,53 @@ local function scancodeStick(xPos, xNeg, yPos, yNeg)
 end
 
 function love.update(dt)
-	t = t + dt
 	local dx, dy = scancodeStick('right', 'left', 'down', 'up')
 	local accel = 500
-	circle.dx = circle.dx + dt * dx * accel
-	circle.dy = circle.dy + dt * dy * accel
-	circle.x = circle.x + dt * circle.dx
-	circle.y = circle.y + dt * circle.dy
-	local w, h = stereogram.heightMap:getDimensions()
-	if circle.x + circle.r > w - 1 then
-		circle.x = w - 1 - circle.r
-		circle.dx = -circle.dx
-	elseif circle.x < circle.r then
-		circle.x = circle.r
-		circle.dx = -circle.dx
-	end
-	if circle.y + circle.r > h - 1 then
-		circle.y = h - 1 - circle.r
-		circle.dy = -circle.dy
-	elseif circle.y < circle.r then
-		circle.y = circle.r
-		circle.dy = -circle.dy
-	end
+	player.dx = player.dx + dt * dx * accel
+	player.dy = player.dy + dt * dy * accel
+	player.x = player.x + dt * player.dx
+	player.y = player.y + dt * player.dy
 end
 
 local function drawGrayscaleGame()
-	local gray
-
-	gray = 0.125
-	love.graphics.setFont(roboto)
-	love.graphics.setColor(gray, gray, gray)
-	love.graphics.print("This is a...", 50, 250)
-
-	gray = 0.5
-	love.graphics.setColor(gray, gray, gray)
-	local iw, ih = sphere:getDimensions()
-	local scale = 2 * circle.r / iw
-	love.graphics.draw(sphere, circle.x, circle.y, 0, scale, scale, iw/2, ih/2)
+	local canvas = love.graphics.getCanvas()
+	local w, h
+	if canvas then w, h = canvas:getDimensions()
+	else w, h = love.graphics.getDimensions() end
+	local dx, dy = w/2 - player.x, h/2 - player.y
+	love.graphics.translate(dx, dy)
+	local g = 32
+	local x0 = math.floor((player.x - w/2) / g)
+	local x1 = math.ceil((player.x + w/2) / g)
+	local y0 = math.floor((player.y - h/2) / g)
+	local y1 = math.ceil((player.y + h/2) / g)
+	for ix=x0,x1 do
+		for iy=y0,y1 do
+			local gray = 0.2 * love.math.noise(0.1*ix, 0.1*iy)
+			love.graphics.setColor(gray, gray, gray)
+			love.graphics.rectangle('fill', ix*g, iy*g, g, g)
+		end
+	end
+	return dx, dy
 end
 
 function love.draw()
 	local wWindow, hWindow = love.graphics.getDimensions()
-	stereogram:resize(wWindow, hWindow, 0, 0)
-	stereogram:setHeightMap()
-	love.graphics.clear(0, 0, 0)
-	drawGrayscaleGame()
-	love.graphics.setCanvas()
+	if stereo then
+		stereogram:resize(wWindow, hWindow, 0, 0)
+		stereogram:setHeightMap()
+		love.graphics.clear(0, 0, 0)
+	end
+	local dx, dy = drawGrayscaleGame()
 
-	love.graphics.setColor(1, 1, 1)
-	love.graphics.draw(stereogram:render(), 0, 0)
+	if stereo then
+		scrollPattern(basePattern, dx, dy, pattern, quads)
+		love.graphics.setCanvas()
+		love.graphics.origin()
+		love.graphics.setColor(1, 1, 1)
+		-- love.graphics.draw(pattern, 0, 0) -- XXX
+		love.graphics.draw(stereogram:render(), 0, 0)
+	end
 end
 
 function toggleFullscreen()
@@ -112,5 +139,7 @@ function love.keypressed(k, s)
 		changeEyeSeparationBy(0, 1)
 	elseif k == '4' then
 		changeEyeSeparationBy(0, -1)
+	elseif k == 'space' then
+		stereo = not stereo
 	end
 end
