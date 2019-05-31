@@ -75,6 +75,12 @@ function love.update(dt)
 	player.y = player.y + dt * player.dy
 end
 
+local function noise(x, y, scale, x0, y0)
+	scale = scale or 1
+	x0, y0 = x0 or 0, y0 or 0
+	return love.math.noise(x0 + x*scale, y0 + y*scale)
+end
+
 local function drawGrayscaleGame()
 	local canvas = love.graphics.getCanvas()
 	local w, h
@@ -89,7 +95,8 @@ local function drawGrayscaleGame()
 	local y1 = math.ceil((player.y + h/2) / g)
 	for ix=x0,x1 do
 		for iy=y0,y1 do
-			local gray = 0.2 * love.math.noise(0.1*ix, 0.1*iy)
+			local gray = 0.1 * noise(ix, iy, 0.1)
+			gray = gray + 0.3 * noise(ix, iy, 0.02718, 0.3, 0.5)
 			love.graphics.setColor(gray, gray, gray)
 			love.graphics.rectangle('fill', ix*g, iy*g, g, g)
 		end
