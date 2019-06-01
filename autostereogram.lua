@@ -20,7 +20,7 @@ Stereogram.__index = Stereogram
 
 local function newQuads(self)
 	local sep, min = self.separation, self.minSeparation
-	local w, h = self.w - sep, self.h
+	local w, h = self.heightMap:getDimensions()
 	self.quads = {}
 	for qx=0,w,min do
 		local qw = math.min(min, w - qx)
@@ -72,7 +72,7 @@ local function drawPattern(self)
 	end
 end
 
-function Stereogram.render(self)
+function Stereogram.render(self, stereo)
 	local oldColor = {love.graphics.getColor()}
 	local oldShader = love.graphics.getShader()
 	local oldCanvas = love.graphics.getCanvas()
@@ -86,11 +86,11 @@ function Stereogram.render(self)
 	drawPattern(self)
 
 	-- Draw height map strips with stereogram shader. 
-	if not self.debug then
+	if stereo then
 		love.graphics.setShader(self.shader)
 		self.shader:send('canvas', self.canvas)
-		self.shader:send('separation', self.separation / self.w)
-		self.shader:send('minSeparation', self.minSeparation / self.w)
+		self.shader:send('maxOffsetUV', (self.separation - self.minSeparation) / self.w)
+		self.shader:send('fadeUV', self.separation/self.w)
 		self.shader:send('xScale', (self.w - self.separation) / self.w)
 	end
 	local w = self.minSeparation

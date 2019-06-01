@@ -106,21 +106,16 @@ end
 
 function love.draw()
 	local wWindow, hWindow = love.graphics.getDimensions()
-	if stereo then
-		stereogram:resize(wWindow, hWindow, 0, 0)
-		stereogram:setHeightMap()
-		love.graphics.clear(0, 0, 0)
-	end
+	stereogram:resize(wWindow, hWindow, 0, 0)
+	stereogram:setHeightMap()
+	love.graphics.clear(0, 0, 0)
 	local dx, dy = drawGrayscaleGame()
 
-	if stereo then
-		scrollPattern(basePattern, dx, dy, pattern, quads)
-		love.graphics.setCanvas()
-		love.graphics.origin()
-		love.graphics.setColor(1, 1, 1)
-		-- love.graphics.draw(pattern, 0, 0) -- XXX
-		love.graphics.draw(stereogram:render(), 0, 0)
-	end
+	love.graphics.setCanvas()
+	love.graphics.origin()
+	love.graphics.setColor(1, 1, 1)
+	scrollPattern(basePattern, dx, dy, pattern, quads)
+	love.graphics.draw(stereogram:render(stereo), 0, 0)
 end
 
 function toggleFullscreen()
